@@ -1,0 +1,123 @@
+rules_version = '2';
+
+// ===========================================================================
+//  Aturan keamanan Absensi Jenggala
+//
+//  PENTING: ganti daftar email di fungsi emailAdmin() di bawah dengan email
+//  yang sama seperti ADMIN_EMAILS di js/config.js. Daftar di file inilah yang
+//  benar-benar berlaku — daftar di config.js hanya mengatur tampilan menu.
+//
+//  Salin seluruh isi berkas ini ke Firebase Console -> Firestore Database ->
+//  Rules, lalu tekan Publish.
+// ===========================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function masuk() {
+      return request.auth != null;
+    }
+
+    // ---- DAFTAR ADMIN: harus sama persis dengan ADMIN_EMAILS di js/config.js ----
+    function emailAdmin() {
+      return masuk() && request.auth.token.email in [
+        'alfadsabilhaq@gmail.com'
+      ];
+    }
+
+    function adminTerdaftar() {
+      return masuk()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function admin() {
+      return emailAdmin() || adminTerdaftar();
+    }
+
+    function berubah(kolom) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(kolom);
+    }
+
+    // -------------------------------------------------------------------
+    // users/{uid} — profil akun Google
+    // -------------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if masuk();
+
+      // Membuat profil sendiri. Peran 'admin' hanya boleh kalau emailnya
+      // memang ada di daftar di atas.
+      allow create: if masuk()
+        && request.auth.uid == uid
+        && (request.resource.data.role == 'anggota' || emailAdmin());
+
+      // Mengubah profil sendiri, tanpa bisa menaikkan peran sendiri.
+      allow update: if masuk()
+        && request.auth.uid == uid
+        && (request.resource.data.role == resource.data.role || emailAdmin());
+
+      allow write: if admin();
+    }
+
+    // -------------------------------------------------------------------
+    // anggota/{id} — daftar nama
+    // -------------------------------------------------------------------
+    match /anggota/{id} {
+      allow read: if masuk();
+      allow create, delete: if admin();
+
+      allow update: if admin()
+        // Mengklaim nama yang belum dipakai siapa pun.
+        || (masuk()
+            && resource.data.uid == null
+            && request.resource.data.uid == request.auth.uid
+            && berubah(['uid', 'email']))
+        // Melepas nama milik sendiri (kalau salah pilih).
+        || (masuk()
+            && resource.data.uid == request.auth.uid
+            && request.resource.data.uid == null
+            && berubah(['uid', 'email']));
+    }
+
+    // -------------------------------------------------------------------
+    // absensi/{id} — catatan kehadiran, id = tanggal_sesi_anggotaId
+    // -------------------------------------------------------------------
+    match /absensi/{id} {
+      allow read: if masuk();
+
+      // Mencatat kehadiran sendiri: id dokumen harus cocok dengan isinya,
+      // dan hanya boleh untuk nama yang memang tertaut ke akun ini.
+      allow create: if admin()
+        || (masuk()
+            && request.resource.data.uid == request.auth.uid
+            && id == request.resource.data.tanggal + '_'
+                   + request.resource.data.sesi + '_'
+                   + request.resource.data.anggotaId
+            && get(/databases/$(database)/documents/anggota/$(request.resource.data.anggotaId)).data.uid == request.auth.uid);
+
+      // Catatan yang sudah masuk tidak bisa diubah pemiliknya — hanya admin.
+      allow update, delete: if admin();
+    }
+
+    // -------------------------------------------------------------------
+    // sesi/{id} — buka/tutup sesi manual oleh admin
+    // -------------------------------------------------------------------
+    match /sesi/{id} {
+      allow read: if masuk();
+      allow write: if admin();
+    }
+
+    // -------------------------------------------------------------------
+    // config/app — kode QR dan pengaturan lain
+    // -------------------------------------------------------------------
+    match /config/{id} {
+      allow read: if masuk();
+      allow write: if admin();
+    }
+
+    // Selain yang disebut di atas: tertutup.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

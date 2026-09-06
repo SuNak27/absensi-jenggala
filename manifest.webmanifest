@@ -1,0 +1,16 @@
+{
+  "name": "Absensi Jenggala",
+  "short_name": "Absensi",
+  "description": "Absensi kegiatan Jenggala — Jejaring Jaga Alam.",
+  "lang": "id",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F5EF",
+  "theme_color": "#6E7A1A",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

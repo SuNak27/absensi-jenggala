@@ -1,0 +1,19 @@
+# Sistem
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Tooling
+node_modules/
+.vercel/
+.firebase/
+*.log
+
+# Rahasia (kalau nanti pakai Firebase CLI)
+serviceAccountKey.json
+.env
+.env.*
