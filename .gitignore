@@ -6,6 +6,7 @@ Desktop.ini
 # Editor
 .vscode/
 .idea/
+.claude/
 
 # Tooling
 node_modules/
