@@ -60,21 +60,18 @@ export async function tambahAnggota({ nama, gender }) {
 export const ubahAnggota = (id, patch) => sdk.updateDoc(sdk.doc(db, 'anggota', id), patch);
 export const hapusAnggota = (id) => sdk.deleteDoc(sdk.doc(db, 'anggota', id));
 
-/** Mengaitkan akun Google yang sedang login ke satu nama anggota. */
-export async function tautkanAnggota(anggotaId) {
-  const user = sesiPengguna.user;
-  if (!user) throw new Error('Belum masuk.');
-
+/** Mengaitkan satu akun Google ke satu nama anggota. Khusus admin. */
+export async function tautkanAnggota(anggotaId, uid, email) {
   const refAnggota = sdk.doc(db, 'anggota', anggotaId);
   const snap = await sdk.getDoc(refAnggota);
   if (!snap.exists()) throw new Error('Nama tidak ditemukan.');
   const data = snap.data();
-  if (data.uid && data.uid !== user.uid) {
-    throw new Error(`"${data.nama}" sudah dipakai akun lain. Hubungi admin kalau ini keliru.`);
+  if (data.uid && data.uid !== uid) {
+    throw new Error(`"${data.nama}" sudah dipakai akun lain.`);
   }
 
-  await sdk.updateDoc(refAnggota, { uid: user.uid, email: user.email || '' });
-  await sdk.updateDoc(sdk.doc(db, 'users', user.uid), { anggotaId });
+  await sdk.updateDoc(refAnggota, { uid, email: email || '' });
+  await sdk.updateDoc(sdk.doc(db, 'users', uid), { anggotaId });
 }
 
 /** Melepas kaitan akun dari sebuah nama (dipakai admin). */
@@ -84,6 +81,22 @@ export async function lepasAnggota(anggotaId, uid) {
     try { await sdk.updateDoc(sdk.doc(db, 'users', uid), { anggotaId: null }); } catch { /* abaikan */ }
   }
 }
+
+/* ---------- pengguna (akun Google yang pernah login) ---------- */
+
+export async function ambilUsers() {
+  const snap = await sdk.getDocs(sdk.query(sdk.collection(db, 'users'), sdk.orderBy('nama')));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
+export function pantauUsers(cb) {
+  return sdk.onSnapshot(
+    sdk.query(sdk.collection(db, 'users'), sdk.orderBy('nama')),
+    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }))),
+  );
+}
+
+export const ubahPeranUser = (uid, role) => sdk.updateDoc(sdk.doc(db, 'users', uid), { role });
 
 /* ---------- sesi (buka/tutup manual oleh admin) ---------- */
 

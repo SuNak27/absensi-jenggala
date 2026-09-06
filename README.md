@@ -4,10 +4,10 @@
 
 # Absensi Jenggala
 
-Aplikasi absensi kegiatan Jenggala. Anggota scan satu QR yang dicetak dan
-dipasang di lokasi, masuk dengan akun Google, mencentang kegiatan yang
-dikerjakan, lalu kehadirannya tercatat. Admin punya rekap, ekspor, dan poster QR
-siap cetak.
+Aplikasi absensi kegiatan Jenggala. Anggota masuk dengan akun Google (ditautkan
+admin ke namanya), scan satu QR yang dicetak dan dipasang di lokasi, mencentang
+kegiatan yang dikerjakan, lalu kehadirannya tercatat. Admin punya rekap, ekspor,
+dan poster QR siap cetak.
 
 Tanpa server sendiri: seluruhnya berkas statis (HTML/CSS/JS), datanya di
 Firebase (Authentication + Firestore).
@@ -45,7 +45,7 @@ QR dicetak & dipasang di lokasi
    bukti scan disimpan (berlaku 15 menit, hilang saat tab ditutup)
         |
         v
-   masuk dengan Google  ->  pilih nama (sekali saja)
+   masuk dengan Google  ->  menunggu admin menautkan ke nama (sekali saja)
         |
         v
    centang kegiatan  ->  [ Absen Sekarang ]
@@ -65,7 +65,8 @@ dokumennya, jadi scan berulang tidak menggandakan data.
 **Untuk anggota**
 
 - Scan QR lewat kamera bawaan HP, atau pemindai di dalam aplikasi.
-- Login Google; cukup sekali memilih nama, seterusnya langsung dikenali.
+- Login Google; admin menautkan akun ke nama sekali saja, seterusnya langsung
+  dikenali — anggota tidak memilih namanya sendiri.
 - Daftar kegiatan menyesuaikan sesi. Istigosah otomatis muncul hanya pada
   sesi malam hari Kamis (malam Jumat).
 - Penanda **tepat waktu / terlambat** otomatis (toleransi 15 menit).
@@ -74,6 +75,10 @@ dokumennya, jadi scan berulang tidak menggandakan data.
 
 **Untuk admin**
 
+- Menu **Pengguna**: menautkan akun Google yang baru login ke satu nama
+  anggota, dan menjadikan/mencabut admin untuk akun mana pun — semuanya
+  begitu akun itu pernah menekan "Masuk dengan Google" sekali, tanpa perlu
+  tahu emailnya dari awal.
 - Poster QR siap cetak (A4), lengkap dengan logo, langkah scan, dan jadwal.
 - Ganti kode QR kapan saja — cetakan lama langsung tidak berlaku.
 - Buka/tutup sesi manual di luar jadwal.
@@ -84,6 +89,9 @@ dokumennya, jadi scan berulang tidak menggandakan data.
 
 **Lain-lain**
 
+- Tampilan mobile-first — dirancang untuk dipakai dari HP di lokasi kegiatan,
+  dengan bar navigasi di bawah layar supaya gampang dijangkau ibu jari; layar
+  lebih besar mendapat tata letak yang lebih lega.
 - Tema mengikuti warna logo Jenggala; ada mode gelap otomatis untuk sesi malam.
 - Bisa dipasang ke layar utama HP (PWA).
 - Tetap jalan saat sinyal putus-putus — Firestore menyimpan cache lokal dan
@@ -123,6 +131,10 @@ Ringkasnya:
 6. Salin isi [`firestore.rules`](firestore.rules) ke tab **Rules** Firestore,
    **ganti email admin di dalamnya**, tekan Publish.
 7. Masuk ke aplikasi → **Admin → Anggota → Isi data anggota**.
+8. Untuk admin kedua yang emailnya belum diketahui dari awal (mis. Neng Hani):
+   minta dia login sekali lewat "Masuk dengan Google", lalu di
+   **Admin → Pengguna** tautkan akunnya ke namanya dan tekan **Jadikan admin**.
+   Tidak perlu menyentuh `ADMIN_EMAILS` atau `firestore.rules` untuk ini.
 
 > Nilai di `firebaseConfig` memang publik dan aman berada di kode frontend.
 > Yang menjaga data adalah `firestore.rules`, bukan kerahasiaan nilai itu.
@@ -148,17 +160,30 @@ yang dibutuhkan pemindai QR di dalam aplikasi.
 
 | Situasi | Yang dilakukan |
 |---|---|
+| Anggota baru pertama kali login | Admin → **Pengguna** → tautkan akunnya ke namanya |
+| Ada yang salah tertaut | Admin → **Pengguna** (ganti pilihan nama) atau Admin → Anggota → **Lepas akun** |
 | Kegiatan mulai di luar jadwal | Admin → Hari ini → **Buka** pada sesi terkait |
 | Kegiatan batal | Admin → Hari ini → **Tutup** |
 | Ada yang HP-nya mati | Admin → Hari ini → **Absen manual** |
-| Ada yang salah pilih nama | Admin → Anggota → **Lepas akun**, atau dia sendiri lewat Profil → **Ganti nama yang tertaut** |
 | QR terlanjur difoto orang | Admin → QR & Keamanan → **Acak** → **Simpan kode** → cetak ulang poster |
 | Ada anggota baru | Admin → Anggota → **Tambah** |
 | Anggota berhenti | Admin → Anggota → **Nonaktifkan** (riwayatnya tetap ada) |
+| Perlu admin kedua | Admin → **Pengguna** → **Jadikan admin** pada akun yang sudah pernah login |
 | Laporan bulanan | Rekap → **Bulan lalu** → **Unduh rekap (CSV)** |
 
 Jadwal dan daftar kegiatan diubah di [`js/config.js`](js/config.js) pada
 konstanta `SESI`, lalu deploy ulang.
+
+### Dua admin: Alfad dan Neng Hani
+
+- **Alfad** — admin pemantau. Emailnya terdaftar di `ADMIN_EMAILS` sehingga
+  otomatis jadi admin sejak login pertama. Tidak ditautkan ke nama anggota
+  mana pun, jadi beranda menampilkannya sebagai "admin pemantau" (bukan alur
+  absen) — dia hanya memantau, mengelola, dan mencetak QR, tidak ikut absen.
+- **Neng Hani** — admin sekaligus anggota aktif. Setelah dia login sekali,
+  Alfad menautkan akunnya ke nama "Neng Hani" di Admin → Pengguna (supaya
+  bisa absen seperti anggota lain) dan menekan **Jadikan admin** di baris yang
+  sama (supaya juga bisa memantau/mengelola).
 
 ## Struktur berkas
 
@@ -181,7 +206,7 @@ js/views/beranda.js        status hari ini + tombol absen
 js/views/gerbang.js        pemeriksa QR (#/absen?k=…)
 js/views/pindai.js         pemindai kamera dalam aplikasi
 js/views/rekap.js          rekap, matriks, ekspor
-js/views/admin.js          kontrol sesi, anggota, kode QR
+js/views/admin.js          kontrol sesi, anggota, pengguna, kode QR
 js/views/poster.js         poster QR siap cetak
 js/views/profil.js         akun + riwayat sendiri
 
@@ -211,7 +236,10 @@ Yang dijamin oleh `firestore.rules` (dicek di server, tidak bisa diakali):
 - ID dokumen wajib cocok dengan isinya, sehingga tidak bisa menulis catatan
   untuk tanggal atau orang lain.
 - Catatan yang sudah masuk tidak bisa diubah atau dihapus kecuali oleh admin.
-- Hanya admin yang bisa mengubah daftar anggota, kode QR, dan status sesi.
+- Hanya admin yang bisa mengubah daftar anggota, kode QR, status sesi, serta
+  menautkan akun ke nama atau mengubah peran admin — anggota **tidak bisa**
+  menautkan namanya sendiri, hanya admin yang melakukannya lewat Admin →
+  Pengguna.
 
 Yang **tidak** dijamin: keharusan scan QR itu sendiri. Bukti scan disimpan di
 browser, sementara Firestore tidak bisa memverifikasi bahwa QR fisik benar-benar

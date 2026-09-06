@@ -1,7 +1,7 @@
 /* Kerangka aplikasi: router hash, navigasi, dan kartu akun. */
 
 import { firebaseSiap, APP_NAMA } from './config.js';
-import { mulaiFirebase, sesiPengguna, saatBerubah, masukGoogle, pesanGalat, segarkanProfil } from './fb.js';
+import { mulaiFirebase, sesiPengguna, saatBerubah, masukGoogle, pesanGalat } from './fb.js';
 import { $, esc, inisial, toast, memuat } from './util.js';
 
 const RUTE = {
@@ -169,18 +169,15 @@ async function mulai() {
 
   saatBerubah(() => { gambarAkun(); gambarNav(); });
 
-  // Muat data anggota yang tertaut sebelum render pertama, supaya beranda
-  // tidak sempat menampilkan "pilih nama" untuk orang yang sudah tertaut.
-  if (sesiPengguna.masuk) {
-    try { await segarkanProfil(); } catch { /* abaikan */ }
-  }
-
-  let uidTerakhir = sesiPengguna.user?.uid || null;
-  saatBerubah(async (s) => {
-    const uid = s.user?.uid || null;
-    if (uid === uidTerakhir) return;
-    uidTerakhir = uid;
-    if (uid) { try { await segarkanProfil(); } catch { /* abaikan */ } }
+  // Render ulang halaman aktif kalau login, tautan nama, atau peran berubah —
+  // termasuk saat admin menautkan/menaikkan peran akun ini dari perangkat lain
+  // sementara halaman ini sedang terbuka (fb.js memantaunya secara langsung).
+  const sidikSesi = (s) => `${s.user?.uid || ''}|${s.profil?.anggotaId || ''}|${s.profil?.role || ''}`;
+  let sidikTerakhir = sidikSesi(sesiPengguna);
+  saatBerubah((s) => {
+    const sidikBaru = sidikSesi(s);
+    if (sidikBaru === sidikTerakhir) return;
+    sidikTerakhir = sidikBaru;
     render();
   });
 

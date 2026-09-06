@@ -74,15 +74,36 @@ export function mulaiFirebase() {
 
     try { await authMod.getRedirectResult(auth); } catch { /* abaikan */ }
 
+    let lepasProfilLive = null;
+
     await new Promise((selesai) => {
       let pertama = true;
       authMod.onAuthStateChanged(auth, async (user) => {
+        if (lepasProfilLive) { lepasProfilLive(); lepasProfilLive = null; }
+
         sesiPengguna.user = user;
         sesiPengguna.profil = user ? await pastikanProfil(user) : null;
-        sesiPengguna.anggota = null;
+        sesiPengguna.anggota = await muatAnggotaTertaut(sesiPengguna.profil?.anggotaId);
         sesiPengguna.siap = true;
         siarkan();
         if (pertama) { pertama = false; selesai(); }
+
+        // Admin menautkan nama / mengubah peran dari perangkat lain, sementara
+        // orangnya sedang membuka aplikasi ini — pantau profilnya sendiri
+        // secara langsung supaya tidak perlu memuat ulang halaman.
+        if (user) {
+          lepasProfilLive = sdk.onSnapshot(sdk.doc(db, 'users', user.uid), async (snap) => {
+            if (!snap.exists()) return;
+            const data = snap.data();
+            const anggotaIdBaru = data.anggotaId || null;
+            const anggotaIdLama = sesiPengguna.profil?.anggotaId || null;
+            sesiPengguna.profil = data;
+            if (anggotaIdBaru !== anggotaIdLama) {
+              sesiPengguna.anggota = await muatAnggotaTertaut(anggotaIdBaru);
+            }
+            siarkan();
+          });
+        }
       });
     });
 
@@ -147,19 +168,11 @@ export async function keluar() {
   await sdk.signOut(auth);
 }
 
-/** Muat ulang profil + anggota tertaut dari Firestore. */
-export async function segarkanProfil() {
-  if (!sesiPengguna.user) return;
-  const snap = await sdk.getDoc(sdk.doc(db, 'users', sesiPengguna.user.uid));
-  sesiPengguna.profil = snap.exists() ? snap.data() : null;
-  const id = sesiPengguna.profil?.anggotaId;
-  if (id) {
-    const a = await sdk.getDoc(sdk.doc(db, 'anggota', id));
-    sesiPengguna.anggota = a.exists() ? { id: a.id, ...a.data() } : null;
-  } else {
-    sesiPengguna.anggota = null;
-  }
-  siarkan();
+/** Ambil dokumen anggota/{id} yang tertaut ke profil, kalau ada. */
+async function muatAnggotaTertaut(anggotaId) {
+  if (!anggotaId) return null;
+  const snap = await sdk.getDoc(sdk.doc(db, 'anggota', anggotaId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
 /** Pesan galat Firebase dalam bahasa Indonesia. */

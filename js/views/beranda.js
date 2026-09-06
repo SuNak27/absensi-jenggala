@@ -1,10 +1,8 @@
 /* Beranda: status hari ini, tombol absen, dan daftar yang sudah hadir. */
 
 import { SESI, sesiById } from '../config.js';
-import { sesiPengguna, masukGoogle, pesanGalat, segarkanProfil } from '../fb.js';
-import {
-  ambilAnggota, pantauAbsensiHari, catatAbsen, tautkanAnggota, ambilOverrideHari,
-} from '../store.js';
+import { sesiPengguna, masukGoogle, pesanGalat } from '../fb.js';
+import { pantauAbsensiHari, catatAbsen, ambilOverrideHari } from '../store.js';
 import { scanSah, sisaMenitScan, hapusScan } from '../qr.js';
 import {
   $, $$, esc, inisial, toast, kunciTanggal, tanggalPanjang, jam, sesiSekarang,
@@ -27,33 +25,9 @@ export async function render(kontainer) {
     return;
   }
 
-  /* ---------- sudah masuk, belum pilih nama ---------- */
+  /* ---------- sudah masuk, akun belum ditautkan ke nama ---------- */
   if (!sesiPengguna.anggota) {
-    const daftar = await ambilAnggota();
-    if (!daftar.length) {
-      kontainer.innerHTML = `
-        <div class="judul-hal"><h1>Data anggota masih kosong</h1></div>
-        <div class="kartu">
-          <p>Admin perlu mengisi daftar anggota lebih dulu lewat menu <strong>Admin → Anggota → Isi data anggota</strong>.</p>
-          ${sesiPengguna.admin ? '<p><a class="btn btn-utama" href="#/admin">Buka menu Admin</a></p>' : ''}
-        </div>`;
-      return;
-    }
-    kontainer.innerHTML = tampilanPilihNama(daftar);
-    $$('#pilih-nama button[data-id]').forEach((b) => {
-      b.onclick = async () => {
-        $$('#pilih-nama button').forEach((x) => { x.disabled = true; });
-        try {
-          await tautkanAnggota(b.dataset.id);
-          await segarkanProfil();
-          toast(`Halo, ${b.dataset.nama}!`, 'sukses');
-          render(kontainer);
-        } catch (err) {
-          toast(pesanGalat(err), 'galat');
-          $$('#pilih-nama button').forEach((x) => { x.disabled = x.dataset.terpakai === '1'; });
-        }
-      };
-    });
+    kontainer.innerHTML = sesiPengguna.admin ? tampilanAdminPemantau() : tampilanBelumDitautkan();
     return;
   }
 
@@ -341,7 +315,7 @@ function tampilanTamu(tanggal) {
     </div>
     <div class="kartu kartu-aksen">
       <h2>Masuk untuk mencatat kehadiran</h2>
-      <p class="catatan">Pakai akun Google-mu. Cukup sekali pilih nama, seterusnya langsung dikenali.</p>
+      <p class="catatan">Pakai akun Google-mu. Admin akan menautkan akunmu ke namamu — cukup sekali, seterusnya langsung dikenali.</p>
       <p class="btn-baris" style="margin-top:14px">
         <button class="btn btn-utama btn-besar" id="tbl-masuk-besar" type="button">Masuk dengan Google</button>
       </p>
@@ -349,8 +323,8 @@ function tampilanTamu(tanggal) {
     <div class="kartu">
       <h2>Cara absen</h2>
       <ol style="margin:0; padding-left:20px">
+        <li>Masuk dengan akun Google (sekali saja), lalu tunggu admin menautkan akunmu ke namamu.</li>
         <li>Scan QR Absensi Jenggala yang dipasang di lokasi.</li>
-        <li>Masuk dengan akun Google dan pilih namamu (sekali saja).</li>
         <li>Centang kegiatan yang dikerjakan, tekan <strong>Absen Sekarang</strong>.</li>
       </ol>
     </div>
@@ -360,32 +334,29 @@ function tampilanTamu(tanggal) {
     ${kartuJadwal(tanggal)}`;
 }
 
-function tampilanPilihNama(daftar) {
-  const uid = sesiPengguna.user.uid;
-  const grup = [
-    { judul: 'Laki-laki', isi: daftar.filter((a) => a.gender === 'L' && a.aktif !== false) },
-    { judul: 'Perempuan', isi: daftar.filter((a) => a.gender === 'P' && a.aktif !== false) },
-  ].filter((g) => g.isi.length);
-
+function tampilanBelumDitautkan() {
   return `
     <div class="judul-hal">
-      <h1>Yang mana namamu?</h1>
-      <p>Pilih sekali saja — akun Google-mu akan terhubung ke nama ini.</p>
+      <h1>Akun belum ditautkan</h1>
     </div>
-    <div class="kartu" id="pilih-nama">
-      ${grup.map((g) => `
-        <h3 style="margin:6px 0 8px; font-size:.82rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted)">${esc(g.judul)}</h3>
-        <div class="pilih-nama" style="margin-bottom:18px">
-          ${g.isi.map((a) => {
-            const terpakai = Boolean(a.uid) && a.uid !== uid;
-            return `
-              <button type="button" data-id="${esc(a.id)}" data-nama="${esc(a.nama)}"
-                      data-terpakai="${terpakai ? 1 : 0}" ${terpakai ? 'disabled' : ''}>
-                ${esc(a.nama)}
-                ${terpakai ? '<span class="sub">sudah dipakai</span>' : ''}
-              </button>`;
-          }).join('')}
-        </div>`).join('')}
-      <p class="catatan">Namamu tidak ada atau salah pilih? Hubungi admin untuk memperbaikinya.</p>
+    <div class="kartu kartu-aksen">
+      <p>Akun Google-mu (<strong>${esc(sesiPengguna.user.email || '')}</strong>) sudah masuk, tapi belum ditautkan ke nama mana pun.</p>
+      <p class="catatan">Hubungi admin (Alfad atau Neng Hani) untuk ditautkan lewat menu Admin → Pengguna. Setelah ditautkan, kamu langsung bisa absen.</p>
+    </div>`;
+}
+
+function tampilanAdminPemantau() {
+  return `
+    <div class="judul-hal">
+      <h1>Halo, admin</h1>
+      <p>Kamu masuk sebagai pemantau — tidak ikut absen.</p>
+    </div>
+    <div class="kartu kartu-aksen">
+      <h2>Pantau kegiatan</h2>
+      <p class="catatan">Lihat siapa saja yang sudah hadir, kontrol sesi, tautkan akun anggota, atau cetak QR.</p>
+      <p class="btn-baris" style="margin-top:14px">
+        <a class="btn btn-utama" href="#/admin">Buka menu Admin</a>
+        <a class="btn" href="#/rekap">Lihat rekap</a>
+      </p>
     </div>`;
 }

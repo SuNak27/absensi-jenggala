@@ -35,48 +35,39 @@ service cloud.firestore {
       return emailAdmin() || adminTerdaftar();
     }
 
-    function berubah(kolom) {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(kolom);
-    }
-
     // -------------------------------------------------------------------
     // users/{uid} — profil akun Google
     // -------------------------------------------------------------------
     match /users/{uid} {
       allow read: if masuk();
 
-      // Membuat profil sendiri. Peran 'admin' hanya boleh kalau emailnya
-      // memang ada di daftar di atas.
+      // Membuat profil sendiri sekali saat login pertama. Peran 'admin'
+      // hanya boleh kalau emailnya ada di daftar emailAdmin(), dan belum
+      // ditautkan ke nama mana pun (penautan hanya lewat admin).
       allow create: if masuk()
         && request.auth.uid == uid
+        && request.resource.data.anggotaId == null
         && (request.resource.data.role == 'anggota' || emailAdmin());
 
-      // Mengubah profil sendiri, tanpa bisa menaikkan peran sendiri.
-      allow update: if masuk()
-        && request.auth.uid == uid
-        && (request.resource.data.role == resource.data.role || emailAdmin());
+      // Mengubah profil sendiri (nama/foto dari Google) diperbolehkan,
+      // tapi peran ('role') dan tautan nama ('anggotaId') hanya boleh
+      // diubah oleh admin — supaya tidak ada yang menaikkan peran atau
+      // menautkan namanya sendiri sembarangan.
+      allow update: if admin()
+        || (masuk()
+            && request.auth.uid == uid
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'anggotaId']));
 
-      allow write: if admin();
+      allow delete: if admin();
     }
 
     // -------------------------------------------------------------------
-    // anggota/{id} — daftar nama
+    // anggota/{id} — daftar nama. Penautan ke akun Google HANYA lewat admin
+    // (menu Admin -> Pengguna), anggota tidak bisa memilih namanya sendiri.
     // -------------------------------------------------------------------
     match /anggota/{id} {
       allow read: if masuk();
-      allow create, delete: if admin();
-
-      allow update: if admin()
-        // Mengklaim nama yang belum dipakai siapa pun.
-        || (masuk()
-            && resource.data.uid == null
-            && request.resource.data.uid == request.auth.uid
-            && berubah(['uid', 'email']))
-        // Melepas nama milik sendiri (kalau salah pilih).
-        || (masuk()
-            && resource.data.uid == request.auth.uid
-            && request.resource.data.uid == null
-            && berubah(['uid', 'email']));
+      allow write: if admin();
     }
 
     // -------------------------------------------------------------------

@@ -1,9 +1,10 @@
 /* Menu admin: kehadiran hari ini, kelola anggota, kontrol sesi, dan QR. */
 
-import { SESI, ANGGOTA_AWAL } from '../config.js';
+import { SESI, ANGGOTA_AWAL, ADMIN_EMAILS } from '../config.js';
 import { sesiPengguna, pesanGalat } from '../fb.js';
 import {
   ambilAnggota, isiAnggotaAwal, tambahAnggota, ubahAnggota, hapusAnggota, lepasAnggota,
+  tautkanAnggota, pantauUsers, ubahPeranUser,
   pantauAbsensiHari, catatAbsen, hapusAbsen,
   ambilPengaturan, simpanPengaturan, ambilOverrideHari, setOverrideSesi,
 } from '../store.js';
@@ -12,9 +13,13 @@ import {
   $, $$, esc, inisial, toast, kunciTanggal, tanggalPanjang, kegiatanSesi, kosong, memuat,
 } from '../util.js';
 
+const EMAIL_BOOTSTRAP = ADMIN_EMAILS.map((e) => e.trim().toLowerCase());
+const adminBawaan = (email) => EMAIL_BOOTSTRAP.includes(String(email || '').toLowerCase());
+
 const TAB = [
   { id: 'hari', label: 'Hari ini' },
   { id: 'anggota', label: 'Anggota' },
+  { id: 'pengguna', label: 'Pengguna' },
   { id: 'qr', label: 'QR & Keamanan' },
 ];
 
@@ -60,6 +65,7 @@ export async function render(kontainer) {
     try {
       if (tabAktif === 'hari') lepas = await tabHariIni(isi);
       else if (tabAktif === 'anggota') await tabAnggota(isi);
+      else if (tabAktif === 'pengguna') lepas = await tabPengguna(isi);
       else await tabQr(isi);
     } catch (e) {
       isi.innerHTML = `<p class="pesan pesan-merah">${esc(pesanGalat(e))}</p>`;
@@ -283,7 +289,8 @@ async function tabAnggota(wadah) {
           </table>
         </div>
         <p class="catatan" style="margin-top:10px">
-          <strong>Lepas akun</strong> dipakai kalau ada yang salah pilih nama — setelah dilepas, nama itu bisa dipilih lagi.
+          Menautkan nama ke akun Google dilakukan lewat tab <strong>Pengguna</strong>.
+          <strong>Lepas akun</strong> di sini melepas kaitan yang sudah ada (mis. salah tautkan).
           <strong>Nonaktifkan</strong> menyembunyikan nama dari daftar absen tanpa menghapus riwayatnya.
         </p>` : ''}
     </div>`;
@@ -340,6 +347,126 @@ async function tabAnggota(wadah) {
       } catch (err) { toast(pesanGalat(err), 'galat'); }
     };
   });
+}
+
+/* ==========================================================================
+   Tab: Pengguna — tautkan akun Google ke nama, kelola peran admin
+   ========================================================================== */
+
+async function tabPengguna(wadah) {
+  const anggota = await ambilAnggota();
+  let users = [];
+
+  const lepas = pantauUsers((data) => { users = data; gambar(); });
+
+  function gambar() {
+    wadah.innerHTML = `
+      <div class="kartu kartu-info">
+        <p class="catatan">
+          Akun yang pernah menekan <strong>Masuk dengan Google</strong> muncul di sini secara otomatis.
+          Tautkan ke nama supaya bisa absen, dan jadikan admin kalau perlu memantau/mengelola.
+        </p>
+      </div>
+      <div class="kartu">
+        <div class="kartu-kepala">
+          <h2>Akun Google</h2>
+          <span class="lencana">${users.length} pernah login</span>
+        </div>
+        ${users.length ? `
+          <div class="tabel-gulir">
+            <table>
+              <thead><tr><th>Akun</th><th>Peran</th><th>Ditautkan ke</th><th></th></tr></thead>
+              <tbody>
+                ${users.map((u) => baris(u)).join('')}
+              </tbody>
+            </table>
+          </div>` : kosong('Belum ada yang login', 'Minta anggota membuka aplikasi dan menekan "Masuk dengan Google".')}
+      </div>`;
+
+    pasang();
+  }
+
+  function baris(u) {
+    const bawaan = adminBawaan(u.email);
+    const anggotaSaatIni = anggota.find((a) => a.id === u.anggotaId) || anggota.find((a) => a.uid === u.id);
+    const opsi = anggota.filter((a) => !a.uid || a.uid === u.id);
+
+    return `
+      <tr>
+        <td>
+          <div style="display:flex; align-items:center; gap:8px; min-width:180px">
+            <span class="avatar" style="width:26px;height:26px;font-size:.7rem">
+              ${u.foto ? `<img src="${esc(u.foto)}" alt="" referrerpolicy="no-referrer">` : esc(inisial(u.nama || u.email))}
+            </span>
+            <div style="min-width:0">
+              <strong>${esc(u.nama || 'Tanpa nama')}</strong>
+              <br><span class="catatan" style="word-break:break-all">${esc(u.email || '')}</span>
+            </div>
+          </div>
+        </td>
+        <td>
+          ${u.role === 'admin' ? '<span class="lencana lencana-oranye">Admin</span>' : '<span class="lencana">Anggota</span>'}
+          ${bawaan ? '<br><span class="catatan">tetap admin (config)</span>' : ''}
+        </td>
+        <td>
+          <select data-taut="${esc(u.id)}" data-email="${esc(u.email || '')}" data-lama="${esc(anggotaSaatIni?.id || '')}" style="min-width:150px">
+            <option value="">— Tidak ditautkan —</option>
+            ${opsi.map((a) => `
+              <option value="${esc(a.id)}" ${anggotaSaatIni?.id === a.id ? 'selected' : ''}>
+                ${esc(a.nama)}${a.aktif === false ? ' (nonaktif)' : ''}
+              </option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <button class="btn btn-kecil" data-peran="${esc(u.id)}" data-nilai="${u.role === 'admin' ? 'anggota' : 'admin'}"
+                  ${bawaan ? 'disabled title="Admin ini terdaftar tetap di js/config.js"' : ''}>
+            ${u.role === 'admin' ? 'Cabut admin' : 'Jadikan admin'}
+          </button>
+        </td>
+      </tr>`;
+  }
+
+  function pasang() {
+    $$('[data-taut]', wadah).forEach((sel) => {
+      sel.onchange = async () => {
+        const uid = sel.dataset.taut;
+        const email = sel.dataset.email;
+        const lama = sel.dataset.lama;
+        const baru = sel.value;
+        sel.disabled = true;
+        try {
+          if (lama && lama !== baru) await lepasAnggota(lama, uid);
+          if (baru) await tautkanAnggota(baru, uid, email);
+          toast('Tautan diperbarui.', 'sukses');
+        } catch (err) {
+          toast(pesanGalat(err), 'galat');
+        }
+        sel.disabled = false;
+      };
+    });
+
+    $$('[data-peran]', wadah).forEach((b) => {
+      b.onclick = async () => {
+        const uid = b.dataset.peran;
+        const nilai = b.dataset.nilai;
+        const diriSendiri = uid === sesiPengguna.user?.uid;
+        if (nilai === 'anggota' && diriSendiri
+            && !confirm('Cabut peran admin dari akunmu sendiri?\n\nMenu Admin akan langsung hilang dari akun ini. Minta admin lain menjadikanmu admin lagi kalau berubah pikiran.')) {
+          return;
+        }
+        b.disabled = true;
+        try {
+          await ubahPeranUser(uid, nilai);
+          toast(nilai === 'admin' ? 'Sekarang admin.' : 'Peran admin dicabut.', 'sukses');
+        } catch (err) {
+          toast(pesanGalat(err), 'galat');
+          b.disabled = false;
+        }
+      };
+    });
+  }
+
+  return lepas;
 }
 
 /* ==========================================================================

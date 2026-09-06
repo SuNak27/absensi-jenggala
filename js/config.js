@@ -23,12 +23,20 @@ export const FIREBASE_CONFIG = {
 
 /**
  * 2. ADMIN
- *    Email Google yang boleh membuka menu Admin (cetak QR, kelola anggota,
- *    absen manual, hapus data). Daftar yang sama HARUS ditulis juga di
- *    firestore.rules supaya benar-benar berlaku di sisi server.
+ *    Email Google yang OTOMATIS jadi admin begitu pertama kali login (daftar
+ *    "bootstrap"). Daftar yang sama HARUS ditulis juga di firestore.rules
+ *    supaya benar-benar berlaku di sisi server.
+ *
+ *    Admin lain yang emailnya belum diketahui dari awal (mis. Neng Hani)
+ *    TIDAK perlu ditambahkan di sini — cukup minta dia login sekali lewat
+ *    tombol "Masuk dengan Google", akunnya akan muncul di menu
+ *    Admin -> Pengguna, lalu jadikan admin dari situ.
+ *
+ *    Menautkan akun ke nama juga hanya bisa dilakukan admin lewat menu
+ *    Admin -> Pengguna — anggota tidak bisa memilih namanya sendiri.
  */
 export const ADMIN_EMAILS = [
-  'alfadsabilhaq@gmail.com',
+  'alfadsabilhaq@gmail.com', // Alfad — admin pemantau, tidak ikut absen
 ];
 
 /**

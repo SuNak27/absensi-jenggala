@@ -135,7 +135,20 @@ Karena emailmu ada di `ADMIN_EMAILS`, menu **Admin** akan muncul.
 17 nama dari `js/config.js` akan dimasukkan sekali jalan. Tombol ini tidak
 berbuat apa-apa kalau data anggota sudah ada, jadi aman ditekan dua kali.
 
-## 10. Cetak QR
+## 10. Tautkan anggota & tambah admin kedua
+
+**Admin → Pengguna**
+
+Setiap anggota perlu login sekali lewat "Masuk dengan Google" — akunnya lalu
+muncul otomatis di tab ini. Tautkan ke namanya masing-masing supaya bisa
+absen; anggota **tidak bisa menautkan namanya sendiri**, harus lewat sini.
+
+Kalau ada admin kedua yang emailnya belum kamu ketahui dari awal: minta dia
+login sekali, tautkan ke namanya (kalau dia juga ikut absen), lalu tekan
+**Jadikan admin** di baris akunnya. Tidak perlu menyentuh `ADMIN_EMAILS` atau
+`firestore.rules` untuk ini.
+
+## 11. Cetak QR
 
 **QR Cetak → Cetak poster**
 

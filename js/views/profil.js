@@ -1,8 +1,8 @@
 /* Profil: akun Google, nama yang tertaut, dan ringkasan kehadiran sendiri. */
 
 import { SESI } from '../config.js';
-import { sesiPengguna, keluar, pesanGalat, segarkanProfil } from '../fb.js';
-import { ambilAbsensiRentang, lepasAnggota } from '../store.js';
+import { sesiPengguna, keluar, pesanGalat } from '../fb.js';
+import { ambilAbsensiRentang } from '../store.js';
 import { hapusScan } from '../qr.js';
 import {
   $, esc, inisial, toast, kunciTanggal, kunciBulanIni, namaBulan, rentangBulan,
@@ -51,7 +51,6 @@ export async function render(kontainer) {
       </div>
 
       <div class="btn-baris" style="margin-top:16px">
-        ${anggota ? '<button class="btn" id="tbl-ganti-nama" type="button">Ganti nama yang tertaut</button>' : ''}
         <button class="btn btn-bahaya" id="tbl-keluar" type="button">Keluar</button>
       </div>
     </div>
@@ -89,10 +88,14 @@ export async function render(kontainer) {
                 <span class="hadir-jam">${esc((r.jamLokal || '').replace(':', '.'))}</span>
               </li>`).join('')}
           </ul>` : kosong('Belum ada kehadiran bulan ini')}
+      </div>` : sesiPengguna.admin ? `
+      <div class="kartu">
+        <p class="catatan">Kamu masuk sebagai admin pemantau — tidak perlu nama anggota untuk absen.</p>
+        <p><a class="btn btn-utama" href="#/admin">Buka menu Admin</a></p>
       </div>` : `
       <div class="kartu">
-        <p class="pesan pesan-oranye">Kamu belum memilih nama, jadi kehadiran belum bisa dicatat.</p>
-        <p><a class="btn btn-utama" href="#/">Pilih nama sekarang</a></p>
+        <p class="pesan pesan-oranye">Akun ini belum ditautkan ke nama mana pun, jadi kehadiran belum bisa dicatat.</p>
+        <p class="catatan">Hubungi admin (Alfad atau Neng Hani) untuk ditautkan lewat menu Admin → Pengguna.</p>
       </div>`}`;
 
   $('#tbl-keluar', kontainer).onclick = async (e) => {
@@ -106,18 +109,4 @@ export async function render(kontainer) {
       e.currentTarget.disabled = false;
     }
   };
-
-  const ganti = $('#tbl-ganti-nama', kontainer);
-  if (ganti) {
-    ganti.onclick = async () => {
-      if (!confirm(`Lepas kaitan akunmu dari nama "${anggota.nama}"?\n\nSetelah ini kamu diminta memilih nama lagi. Riwayat kehadiran yang sudah tercatat tetap aman.`)) return;
-      ganti.disabled = true;
-      try {
-        await lepasAnggota(anggota.id, user.uid);
-        await segarkanProfil();
-        toast('Silakan pilih namamu lagi.');
-        pergiKe('');
-      } catch (err) { toast(pesanGalat(err), 'galat'); ganti.disabled = false; }
-    };
-  }
 }
