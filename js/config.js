@@ -12,12 +12,13 @@
  *    Langkah lengkap ada di PANDUAN-FIREBASE.md
  */
 export const FIREBASE_CONFIG = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: "AIzaSyC4BsLUNZO92WBRm_2lK_ogr5BYKUZ9g9o",
+  authDomain: "absensi-jenggala.firebaseapp.com",
+  projectId: "absensi-jenggala",
+  storageBucket: "absensi-jenggala.firebasestorage.app",
+  messagingSenderId: "642611142144",
+  appId: "1:642611142144:web:1047ef57f189d17565c2e5",
+  measurementId: "G-87LTBC1JD6"
 };
 
 /**
